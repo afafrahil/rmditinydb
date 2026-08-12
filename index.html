@@ -973,10 +973,12 @@
     const kPending = {};
     let kReqCounter = 0;
 
-    window.__kodularResponse = function (base64Json) {
+    // Catatan: versi ini menerima teks JSON APA ADANYA (bukan base64).
+    // Kodular meng-escape backslash lalu kutip satu sebelum memanggil fungsi ini,
+    // jadi jsonText di sini sudah berupa JSON string yang valid.
+    window.__kodularResponse = function (jsonText) {
       try {
-        const jsonStr = decodeURIComponent(escape(atob(base64Json)));
-        const res = JSON.parse(jsonStr);
+        const res = JSON.parse(jsonText);
         const pending = kPending[res.reqId];
         if (pending) {
           delete kPending[res.reqId];
