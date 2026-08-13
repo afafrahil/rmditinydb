@@ -1029,10 +1029,17 @@
       __kRawLogEl.textContent = line + '\n\n' + __kRawLogEl.textContent;
     }
 
-    window.__kodularResponse = function (jsonText) {
-      kRawLog_('RAW MASUK', jsonText);
+    window.__kodularResponse = function (data) {
+      kRawLog_('RAW MASUK', typeof data === 'string' ? data : JSON.stringify(data));
       try {
-        const res = JSON.parse(jsonText);
+        let res;
+        if (typeof data === 'object' && data !== null) {
+          // Sudah berupa object (dari JSON.parse di EvaluateJavaScript)
+          res = data;
+        } else {
+          // Berupa string — coba parse langsung
+          res = JSON.parse(String(data));
+        }
         kRawLog_('PARSE OK', JSON.stringify(res));
         const pending = kPending[res.reqId];
         if (pending) {
