@@ -754,10 +754,12 @@
 <body>
 
   <!-- ==== TOMBOL TES BRIDGE TINYDB (SEMENTARA, HAPUS SETELAH SELESAI TES) ==== -->
-  <button id="btnTestBridge" onclick="testBridge()" style="position:fixed;bottom:12px;right:12px;z-index:99999;background:#e91e63;color:#fff;border:none;padding:10px 14px;border-radius:8px;font-size:13px;box-shadow:0 2px 6px rgba(0,0,0,.3);">
-    Test Bridge
-  </button>
-  <pre id="testBridgeOutput" style="position:fixed;top:0;left:0;right:0;max-height:60vh;overflow:auto;z-index:99999;background:#111;color:#0f0;font-size:12px;line-height:1.5;padding:10px;margin:0;white-space:pre-wrap;word-break:break-all;display:none;"></pre>
+  <div style="width:100%;background:#fff;padding:10px;box-sizing:border-box;border-bottom:3px solid #e91e63;">
+    <button id="btnTestBridge" onclick="testBridge()" style="width:100%;background:#e91e63;color:#fff;border:none;padding:12px;border-radius:8px;font-size:14px;">
+      Test Bridge
+    </button>
+    <pre id="testBridgeOutput" style="max-height:40vh;overflow:auto;background:#111;color:#0f0;font-size:12px;line-height:1.5;padding:10px;margin:8px 0 0 0;white-space:pre-wrap;word-break:break-all;display:none;"></pre>
+  </div>
   <script>
     async function testBridge() {
       const out = document.getElementById('testBridgeOutput');
