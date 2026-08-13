@@ -753,47 +753,7 @@
 
 <body>
 
-  <!-- ==== TOMBOL TES BRIDGE TINYDB (SEMENTARA, HAPUS SETELAH SELESAI TES) ==== -->
-  <div style="width:100%;background:#fff;padding:10px;box-sizing:border-box;border-bottom:3px solid #e91e63;">
-    <button id="btnTestBridge" onclick="testBridge()" style="width:100%;background:#e91e63;color:#fff;border:none;padding:12px;border-radius:8px;font-size:14px;">
-      Test Bridge
-    </button>
-    <pre id="testBridgeOutput" style="max-height:40vh;overflow:auto;background:#111;color:#0f0;font-size:12px;line-height:1.5;padding:10px;margin:8px 0 0 0;white-space:pre-wrap;word-break:break-all;display:none;"></pre>
-  </div>
-  <script>
-    async function testBridge() {
-      const out = document.getElementById('testBridgeOutput');
-      out.style.display = 'block';
-      const log = [];
-      function render() { out.textContent = log.join('\n'); }
-      try {
-        log.push('1) SET "TEST_KEY" ...'); render();
-        const setRes = await kStorage.set('TEST_KEY', 'halo dari HTML jam ' + new Date().toLocaleTimeString());
-        log.push('   -> ' + JSON.stringify(setRes)); render();
 
-        log.push('2) GET "TEST_KEY" ...'); render();
-        const getRes = await kStorage.get('TEST_KEY');
-        log.push('   -> ' + JSON.stringify(getRes)); render();
-
-        log.push('3) LIST prefix "TEST" ...'); render();
-        const listRes = await kStorage.list('TEST');
-        log.push('   -> ' + JSON.stringify(listRes)); render();
-
-        log.push('4) DELETE "TEST_KEY" ...'); render();
-        const delRes = await kStorage.delete('TEST_KEY');
-        log.push('   -> ' + JSON.stringify(delRes)); render();
-
-        log.push('5) GET lagi (harus null) ...'); render();
-        const getRes2 = await kStorage.get('TEST_KEY');
-        log.push('   -> ' + JSON.stringify(getRes2)); render();
-
-        log.push(''); log.push('BRIDGE OK ✅'); render();
-      } catch (e) {
-        log.push(''); log.push('BRIDGE ERROR ❌'); log.push(String(e && e.message ? e.message : e)); render();
-      }
-    }
-  </script>
-  <!-- ==== AKHIR TOMBOL TES ==== -->
 
   <!-- SPLASH SCREEN -->
   <div id="splashScreen">
@@ -1015,42 +975,22 @@
     const kPending = {};
     let kReqCounter = 0;
 
-    // Catatan: versi ini menerima teks JSON APA ADANYA (bukan base64).
-    // Kodular meng-escape backslash lalu kutip satu sebelum memanggil fungsi ini,
-    // jadi jsonText di sini sudah berupa JSON string yang valid.
-    let __kRawLogEl = null;
-    function kRawLog_(label, text) {
-      if (!__kRawLogEl) {
-        __kRawLogEl = document.createElement('pre');
-        __kRawLogEl.style.cssText = 'position:fixed;bottom:0;left:0;right:0;max-height:35vh;overflow:auto;z-index:99998;background:#000;color:#ff0;font-size:11px;line-height:1.4;padding:8px;margin:0;white-space:pre-wrap;word-break:break-all;border-top:3px solid #ff0;';
-        document.body.appendChild(__kRawLogEl);
-      }
-      const line = '[' + new Date().toLocaleTimeString() + '] ' + label + ': ' + text;
-      __kRawLogEl.textContent = line + '\n\n' + __kRawLogEl.textContent;
-    }
 
     window.__kodularResponse = function (data) {
-      kRawLog_('RAW MASUK', typeof data === 'string' ? data : JSON.stringify(data));
       try {
         let res;
         if (typeof data === 'object' && data !== null) {
-          // Sudah berupa object (dari JSON.parse di EvaluateJavaScript)
           res = data;
         } else {
-          // Berupa string — coba parse langsung
           res = JSON.parse(String(data));
         }
-        kRawLog_('PARSE OK', JSON.stringify(res));
         const pending = kPending[res.reqId];
         if (pending) {
           delete kPending[res.reqId];
           if (res.success === false) pending.reject(new Error(res.message || 'Operasi TinyDB gagal'));
           else pending.resolve(res);
-        } else {
-          kRawLog_('WARNING', 'reqId tidak ditemukan di kPending: ' + res.reqId);
         }
       } catch (e) {
-        kRawLog_('PARSE ERROR', String(e.message || e));
         console.error('Gagal memproses respons Kodular:', e);
       }
     };
