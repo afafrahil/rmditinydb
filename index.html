@@ -1018,16 +1018,32 @@
     // Catatan: versi ini menerima teks JSON APA ADANYA (bukan base64).
     // Kodular meng-escape backslash lalu kutip satu sebelum memanggil fungsi ini,
     // jadi jsonText di sini sudah berupa JSON string yang valid.
+    let __kRawLogEl = null;
+    function kRawLog_(label, text) {
+      if (!__kRawLogEl) {
+        __kRawLogEl = document.createElement('pre');
+        __kRawLogEl.style.cssText = 'position:fixed;bottom:0;left:0;right:0;max-height:35vh;overflow:auto;z-index:99998;background:#000;color:#ff0;font-size:11px;line-height:1.4;padding:8px;margin:0;white-space:pre-wrap;word-break:break-all;border-top:3px solid #ff0;';
+        document.body.appendChild(__kRawLogEl);
+      }
+      const line = '[' + new Date().toLocaleTimeString() + '] ' + label + ': ' + text;
+      __kRawLogEl.textContent = line + '\n\n' + __kRawLogEl.textContent;
+    }
+
     window.__kodularResponse = function (jsonText) {
+      kRawLog_('RAW MASUK', jsonText);
       try {
         const res = JSON.parse(jsonText);
+        kRawLog_('PARSE OK', JSON.stringify(res));
         const pending = kPending[res.reqId];
         if (pending) {
           delete kPending[res.reqId];
           if (res.success === false) pending.reject(new Error(res.message || 'Operasi TinyDB gagal'));
           else pending.resolve(res);
+        } else {
+          kRawLog_('WARNING', 'reqId tidak ditemukan di kPending: ' + res.reqId);
         }
       } catch (e) {
+        kRawLog_('PARSE ERROR', String(e.message || e));
         console.error('Gagal memproses respons Kodular:', e);
       }
     };
