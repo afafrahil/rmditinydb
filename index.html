@@ -757,33 +757,37 @@
   <button id="btnTestBridge" onclick="testBridge()" style="position:fixed;bottom:12px;right:12px;z-index:99999;background:#e91e63;color:#fff;border:none;padding:10px 14px;border-radius:8px;font-size:13px;box-shadow:0 2px 6px rgba(0,0,0,.3);">
     Test Bridge
   </button>
+  <pre id="testBridgeOutput" style="position:fixed;top:0;left:0;right:0;max-height:60vh;overflow:auto;z-index:99999;background:#111;color:#0f0;font-size:12px;line-height:1.5;padding:10px;margin:0;white-space:pre-wrap;word-break:break-all;display:none;"></pre>
   <script>
     async function testBridge() {
+      const out = document.getElementById('testBridgeOutput');
+      out.style.display = 'block';
       const log = [];
+      function render() { out.textContent = log.join('\n'); }
       try {
-        log.push('1) SET "TEST_KEY" ...');
+        log.push('1) SET "TEST_KEY" ...'); render();
         const setRes = await kStorage.set('TEST_KEY', 'halo dari HTML jam ' + new Date().toLocaleTimeString());
-        log.push('   -> ' + JSON.stringify(setRes));
+        log.push('   -> ' + JSON.stringify(setRes)); render();
 
-        log.push('2) GET "TEST_KEY" ...');
+        log.push('2) GET "TEST_KEY" ...'); render();
         const getRes = await kStorage.get('TEST_KEY');
-        log.push('   -> ' + JSON.stringify(getRes));
+        log.push('   -> ' + JSON.stringify(getRes)); render();
 
-        log.push('3) LIST prefix "TEST" ...');
+        log.push('3) LIST prefix "TEST" ...'); render();
         const listRes = await kStorage.list('TEST');
-        log.push('   -> ' + JSON.stringify(listRes));
+        log.push('   -> ' + JSON.stringify(listRes)); render();
 
-        log.push('4) DELETE "TEST_KEY" ...');
+        log.push('4) DELETE "TEST_KEY" ...'); render();
         const delRes = await kStorage.delete('TEST_KEY');
-        log.push('   -> ' + JSON.stringify(delRes));
+        log.push('   -> ' + JSON.stringify(delRes)); render();
 
-        log.push('5) GET lagi (harus kosong) ...');
+        log.push('5) GET lagi (harus null) ...'); render();
         const getRes2 = await kStorage.get('TEST_KEY');
-        log.push('   -> ' + JSON.stringify(getRes2));
+        log.push('   -> ' + JSON.stringify(getRes2)); render();
 
-        alert('BRIDGE OK ✅\n\n' + log.join('\n'));
+        log.push(''); log.push('BRIDGE OK ✅'); render();
       } catch (e) {
-        alert('BRIDGE ERROR ❌\n\n' + log.join('\n') + '\n\nError: ' + e.message);
+        log.push(''); log.push('BRIDGE ERROR ❌'); log.push(String(e && e.message ? e.message : e)); render();
       }
     }
   </script>
