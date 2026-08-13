@@ -753,6 +753,42 @@
 
 <body>
 
+  <!-- ==== TOMBOL TES BRIDGE TINYDB (SEMENTARA, HAPUS SETELAH SELESAI TES) ==== -->
+  <button id="btnTestBridge" onclick="testBridge()" style="position:fixed;bottom:12px;right:12px;z-index:99999;background:#e91e63;color:#fff;border:none;padding:10px 14px;border-radius:8px;font-size:13px;box-shadow:0 2px 6px rgba(0,0,0,.3);">
+    Test Bridge
+  </button>
+  <script>
+    async function testBridge() {
+      const log = [];
+      try {
+        log.push('1) SET "TEST_KEY" ...');
+        const setRes = await kStorage.set('TEST_KEY', 'halo dari HTML jam ' + new Date().toLocaleTimeString());
+        log.push('   -> ' + JSON.stringify(setRes));
+
+        log.push('2) GET "TEST_KEY" ...');
+        const getRes = await kStorage.get('TEST_KEY');
+        log.push('   -> ' + JSON.stringify(getRes));
+
+        log.push('3) LIST prefix "TEST" ...');
+        const listRes = await kStorage.list('TEST');
+        log.push('   -> ' + JSON.stringify(listRes));
+
+        log.push('4) DELETE "TEST_KEY" ...');
+        const delRes = await kStorage.delete('TEST_KEY');
+        log.push('   -> ' + JSON.stringify(delRes));
+
+        log.push('5) GET lagi (harus kosong) ...');
+        const getRes2 = await kStorage.get('TEST_KEY');
+        log.push('   -> ' + JSON.stringify(getRes2));
+
+        alert('BRIDGE OK ✅\n\n' + log.join('\n'));
+      } catch (e) {
+        alert('BRIDGE ERROR ❌\n\n' + log.join('\n') + '\n\nError: ' + e.message);
+      }
+    }
+  </script>
+  <!-- ==== AKHIR TOMBOL TES ==== -->
+
   <!-- SPLASH SCREEN -->
   <div id="splashScreen">
     <div class="splash-shape top"></div>
