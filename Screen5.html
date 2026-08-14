@@ -325,13 +325,31 @@
     }
 
     .btn-logout {
-      background: transparent;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: #fef2f2;
       color: var(--error);
-      border: none;
-      font-size: 14px;
+      border: 1px solid #fecaca;
+      border-radius: 20px;
+      font-size: 13px;
       font-weight: 600;
-      padding: 8px;
+      padding: 8px 14px;
       cursor: pointer;
+      flex-shrink: 0;
+      transition: 0.15s ease;
+    }
+
+    .btn-logout svg {
+      width: 15px;
+      height: 15px;
+      flex-shrink: 0;
+    }
+
+    .btn-logout:active {
+      background: #fee2e2;
+      border-color: var(--error);
+      transform: scale(0.96);
     }
 
     .card-list {
@@ -825,7 +843,14 @@
             <h2>Dashboard</h2>
             <div style="font-size: 13px; color: var(--text-muted);" id="userGreeting">Halo, Guru</div>
           </div>
-          <button class="btn-logout" onclick="logout()">Keluar</button>
+          <button class="btn-logout" onclick="logout()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16 17 21 12 16 7"></polyline>
+              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+            Keluar
+          </button>
         </div>
         <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; background:var(--card-bg); border:1px solid var(--border-color); border-radius:10px; padding:10px 12px; margin-bottom:12px; flex-shrink:0;">
           <div id="syncStatus" style="font-size:12px; color: var(--text-muted);">Belum pernah sinkron</div>
@@ -854,13 +879,7 @@
           <button class="menu-btn kehadiran" onclick="openAspek('KEHADIRAN')">Kehadiran</button>
         </div>
 
-        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:4px; flex-shrink:0;">
-          <div class="section-label" style="margin-bottom:0;">Rekap Nilai</div>
-          <button onclick="kirimNilai()" style="background:#0f5132; color:#fff; border:none; border-radius:8px; padding:8px 12px; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap;">
-            📤 Kirim Nilai
-          </button>
-        </div>
-        <div id="kirimStatus" style="font-size:11px; color: var(--text-muted); margin-bottom:8px; flex-shrink:0;"></div>
+        <div class="section-label">Rekap Nilai</div>
         <div class="table-responsive">
           <table id="tableRekap">
             <thead>
@@ -1147,10 +1166,6 @@
 
     function nilaiTag(kelas, mapel, aspek) {
       return 'NILAI_' + tagSafe(kelas) + '_' + tagSafe(mapel) + '_' + tagSafe(aspek);
-    }
-
-    function terkirimTag(kelas, mapel) {
-      return 'TERKIRIM_' + tagSafe(kelas) + '_' + tagSafe(mapel);
     }
 
     function nilaiSyncMetaTag(kelas, mapel, aspek) {
@@ -1483,9 +1498,7 @@
       document.getElementById('rekapTitle').textContent = `${kelas} • ${mapel}`;
 
       const tbody = document.getElementById('tbodyRekap');
-      const kirimStatusEl = document.getElementById('kirimStatus');
       tbody.innerHTML = '<tr><td colspan="9">Memuat data offline...</td></tr>';
-      if (kirimStatusEl) kirimStatusEl.textContent = '';
 
       try {
         // 1. Ambil data siswa & nilai offline
@@ -1550,14 +1563,6 @@
           tr.innerHTML = html;
           tbody.appendChild(tr);
         });
-
-        // Update status kirim
-        if (kirimStatusEl) {
-          const meta = await kStorage.getJSON(terkirimTag(kelas, mapel), null);
-          kirimStatusEl.textContent = (meta && meta.dikirimPada) ?
-            'Terakhir dikirim ke server: ' + formatWaktu_(meta.dikirimPada) :
-            'Belum pernah dikirim ke server';
-        }
       } catch (e) {
         tbody.innerHTML = `<tr><td colspan="9" style="color:red;">${e.message}</td></tr>`;
       }
@@ -1588,63 +1593,6 @@
         };
       });
       return rekap;
-    }
-
-    // ==========================================
-    // KIRIM NILAI (dengan USERNAME)
-    // ==========================================
-    async function kirimNilai() {
-      if (!currentClass) return;
-      const konfirmKirim = await showKonfirmasi(
-        `Kirim nilai kelas ${currentClass.kelas} - ${currentClass.mapel} ke server?\n\nData rekap di spreadsheet akan diperbarui.\n\n⚠️ Nilai yang sudah dikirim sebelumnya TIDAK akan ditimpa.`,
-        'Konfirmasi Kirim Nilai'
-      );
-      if (!konfirmKirim) return;
-
-      showLoading(true, 'Mengirim nilai ke server...');
-      try {
-        const siswa = await kStorage.getJSON(siswaTag(currentClass.kelas), []);
-        const namaByNis = {};
-        siswa.forEach(s => namaByNis[s.nis] = s.nama);
-
-        const payload = {};
-        for (const aspek of ASPEK_LIST) {
-          const nilaiMap = await kStorage.getJSON(nilaiTag(currentClass.kelas, currentClass.mapel, aspek), {});
-          const flat = [];
-          Object.keys(nilaiMap).forEach(nis => {
-            Object.keys(nilaiMap[nis]).forEach(noPen => {
-              const val = nilaiMap[nis][noPen];
-              if (val !== undefined && val !== null && val !== '') {
-                flat.push({ nis, nama: namaByNis[nis] || '', noPenilaian: noPen, nilai: val });
-              }
-            });
-          });
-          payload[aspek] = flat;
-        }
-
-        // Kirim dengan username
-        const res = await apiCall('kirimNilai', {
-          kelas: currentClass.kelas,
-          mapel: currentClass.mapel,
-          payload: payload,
-          username: user.username
-        });
-
-        showLoading(false);
-
-        if (!res.success) {
-          await showAlert('Gagal mengirim: ' + res.message, 'Gagal');
-          return;
-        }
-
-        await kStorage.setJSON(terkirimTag(currentClass.kelas, currentClass.mapel), { dikirimPada: res.dikirimPada });
-
-        await showAlert(res.message, 'Nilai Terkirim');
-        openRekap(currentClass.kelas, currentClass.mapel);
-      } catch (e) {
-        showLoading(false);
-        await showAlert('Gagal mengirim: ' + e.message, 'Gagal');
-      }
     }
 
     // ==========================================
@@ -1940,7 +1888,7 @@
         closeModalKolom();
 
         msg.style.color = 'var(--success)';
-        msg.textContent = 'Tersimpan offline ✓ (tekan "Kirim Nilai" di Rekap untuk mengirim ke server)';
+        msg.textContent = 'Tersimpan offline ✓ (tekan "Sinkron Nilai" di halaman ini untuk mengirim ke server)';
         setTimeout(() => msg.textContent = '', 4000);
       } catch (e) {
         msg.style.color = 'var(--error)';
