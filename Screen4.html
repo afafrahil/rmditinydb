@@ -906,6 +906,37 @@
 
   </div>
 
+  <!-- MODAL: KONFIRMASI CUSTOM (ganti confirm()) -->
+  <div id="modalKonfirmasi" class="modal-overlay" style="z-index:1000;">
+    <div class="modal-card" style="max-height:auto;">
+      <div class="modal-header">
+        <div class="modal-title" id="modalKonfirmasiTitle">Konfirmasi</div>
+      </div>
+      <div class="modal-body" style="padding:16px;">
+        <p id="modalKonfirmasiMsg" style="font-size:14px;line-height:1.6;color:var(--text-main);white-space:pre-line;"></p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="modalKonfirmasiResolve_(false)">Batal</button>
+        <button class="btn-main" onclick="modalKonfirmasiResolve_(true)">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: ALERT CUSTOM (ganti alert()) -->
+  <div id="modalAlert" class="modal-overlay" style="z-index:1001;">
+    <div class="modal-card" style="max-height:auto;">
+      <div class="modal-header">
+        <div class="modal-title" id="modalAlertTitle">Informasi</div>
+      </div>
+      <div class="modal-body" style="padding:16px;">
+        <p id="modalAlertMsg" style="font-size:14px;line-height:1.6;color:var(--text-main);white-space:pre-line;"></p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-main" onclick="modalAlertResolve_()">OK</button>
+      </div>
+    </div>
+  </div>
+
   <!-- MODAL: TAMBAH KOLOM PENILAIAN -->
   <div id="modalKolom" class="modal-overlay">
     <div class="modal-card">
@@ -929,6 +960,37 @@
     // ==========================================
     const API_URL = "https://script.google.com/macros/s/AKfycbx5B_NzjJr7wtcLq3ocnsIS51XbNN8BcecM9L8pe86ouwxKSrBKaORz2q8di1YbyD4_/exec";
     // TODO: Ganti dengan URL deployment Google Apps Script yang baru!
+
+    // ==========================================
+    // CUSTOM MODAL (ganti alert dan confirm)
+    // ==========================================
+    let __modalKonfirmasiResolve = null;
+    function showKonfirmasi(msg, title = 'Konfirmasi') {
+      return new Promise(resolve => {
+        __modalKonfirmasiResolve = resolve;
+        document.getElementById('modalKonfirmasiTitle').textContent = title;
+        document.getElementById('modalKonfirmasiMsg').textContent = msg;
+        document.getElementById('modalKonfirmasi').classList.add('active');
+      });
+    }
+    function modalKonfirmasiResolve_(val) {
+      document.getElementById('modalKonfirmasi').classList.remove('active');
+      if (__modalKonfirmasiResolve) { __modalKonfirmasiResolve(val); __modalKonfirmasiResolve = null; }
+    }
+
+    let __modalAlertResolve = null;
+    function showAlert(msg, title = 'Informasi') {
+      return new Promise(resolve => {
+        __modalAlertResolve = resolve;
+        document.getElementById('modalAlertTitle').textContent = title;
+        document.getElementById('modalAlertMsg').textContent = msg;
+        document.getElementById('modalAlert').classList.add('active');
+      });
+    }
+    function modalAlertResolve_() {
+      document.getElementById('modalAlert').classList.remove('active');
+      if (__modalAlertResolve) { __modalAlertResolve(); __modalAlertResolve = null; }
+    }
 
     // ==========================================
     // STATE
@@ -1318,7 +1380,7 @@
       showLoading(false);
 
       if (!res.success) {
-        alert(res.message);
+        await showAlert(res.message);
         refreshSyncStatus();
         return;
       }
@@ -1369,7 +1431,7 @@
       try {
         const res = await apiCall('getSyncData', { username: user.username });
         if (!res.success) {
-          if (!silent) alert('Gagal sinkron: ' + res.message);
+          if (!silent) await showAlert('Gagal sinkron: ' + res.message, 'Gagal');
           return;
         }
 
@@ -1387,9 +1449,9 @@
         });
 
         if (statusEl) statusEl.textContent = 'Tersinkron: ' + formatWaktu_(res.syncedAt);
-        if (!silent) alert('Sinkron berhasil ✓\n' + res.assignments.length + ' kelas/mapel & data siswa tersimpan offline.\nSekarang input nilai bisa dilakukan tanpa internet.');
+        if (!silent) await showAlert('Sinkron berhasil ✓\n' + res.assignments.length + ' kelas/mapel & data siswa tersimpan offline.\nSekarang input nilai bisa dilakukan tanpa internet.', 'Sinkron Berhasil');
       } catch (e) {
-        if (!silent) alert('Gagal sinkron: ' + e.message);
+        if (!silent) await showAlert('Gagal sinkron: ' + e.message, 'Gagal');
       } finally {
         showLoading(false);
         if (btn) btn.disabled = false;
@@ -1517,7 +1579,11 @@
     // ==========================================
     async function kirimNilai() {
       if (!currentClass) return;
-      if (!confirm(`Kirim nilai kelas ${currentClass.kelas} - ${currentClass.mapel} ke server?\n\nData rekap di spreadsheet akan diperbarui.\n\n⚠️ Nilai yang sudah dikirim sebelumnya TIDAK akan ditimpa.`)) return;
+      const konfirmKirim = await showKonfirmasi(
+        `Kirim nilai kelas ${currentClass.kelas} - ${currentClass.mapel} ke server?\n\nData rekap di spreadsheet akan diperbarui.\n\n⚠️ Nilai yang sudah dikirim sebelumnya TIDAK akan ditimpa.`,
+        'Konfirmasi Kirim Nilai'
+      );
+      if (!konfirmKirim) return;
 
       showLoading(true, 'Mengirim nilai ke server...');
       try {
@@ -1551,17 +1617,17 @@
         showLoading(false);
 
         if (!res.success) {
-          alert('Gagal mengirim: ' + res.message);
+          await showAlert('Gagal mengirim: ' + res.message, 'Gagal');
           return;
         }
 
         await kStorage.setJSON(terkirimTag(currentClass.kelas, currentClass.mapel), { dikirimPada: res.dikirimPada });
 
-        alert(res.message);
+        await showAlert(res.message, 'Nilai Terkirim');
         openRekap(currentClass.kelas, currentClass.mapel);
       } catch (e) {
         showLoading(false);
-        alert('Gagal mengirim: ' + e.message);
+        await showAlert('Gagal mengirim: ' + e.message, 'Gagal');
       }
     }
 
@@ -1578,7 +1644,7 @@
         const siswa = await kStorage.getJSON(siswaTag(currentClass.kelas), null);
         if (!siswa) {
           showLoading(false);
-          alert('Data siswa belum tersinkron. Kembali ke Dashboard dan tekan "Sinkron Data" terlebih dahulu.');
+          await showAlert('Data siswa belum tersinkron. Kembali ke Dashboard dan tekan "Sinkron Data" terlebih dahulu.', 'Data Belum Tersinkron');
           openRekap(currentClass.kelas, currentClass.mapel);
           return;
         }
@@ -1595,7 +1661,7 @@
         renderAspekTable();
       } catch (e) {
         showLoading(false);
-        alert('Gagal memuat data: ' + e.message);
+        await showAlert('Gagal memuat data: ' + e.message, 'Gagal');
         openRekap(currentClass.kelas, currentClass.mapel);
       }
     }
@@ -1729,7 +1795,7 @@
 
       if (!flatData.length) {
         btn.disabled = false;
-        alert('Isi minimal satu nilai sebelum menyimpan.');
+        await showAlert('Isi minimal satu nilai sebelum menyimpan.', 'Perhatian'); return;
         return;
       }
 
@@ -1761,7 +1827,12 @@
     }
 
     async function hapusKolom(noPen) {
-      if (!confirm(`Yakin ingin menghapus semua nilai pada kolom P-${noPen}? Tindakan ini tidak bisa dibatalkan.`)) return;
+      const konfirmHapus = await showKonfirmasi(
+        `Yakin ingin menghapus semua nilai pada kolom P-${noPen}?
+Tindakan ini tidak bisa dibatalkan.`,
+        'Konfirmasi Hapus'
+      );
+      if (!konfirmHapus) return;
 
       showLoading(true, 'Menghapus (offline)...');
       const msg = document.getElementById('saveMsg');
