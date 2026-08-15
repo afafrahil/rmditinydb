@@ -1781,161 +1781,161 @@
     }
 
     async function sinkronNilaiAspek() {
-  if (!currentClass || !currentAspek) return;
-  const btn = document.getElementById('btnSinkronNilai');
-  if (btn) btn.disabled = true;
-
-  const pendingTag = nilaiPendingDeleteTag(currentClass.kelas, currentClass.mapel, currentAspek);
-
-  try {
-    const nilaiLokal = await kStorage.getJSON(nilaiTag(currentClass.kelas, currentClass.mapel, currentAspek), {});
-    const adaDataLokal = nilaiLokal && Object.keys(nilaiLokal).length > 0;
-
-    if (!adaDataLokal) {
-      showLoading(true, 'Mengambil data nilai dari server...');
-      const res = await apiCall('getAspekNilai', {
-        kelas: currentClass.kelas,
-        mapel: currentClass.mapel,
-        aspek: currentAspek
-      });
-      showLoading(false);
-
-      if (!res.success) {
-        await showAlert('Gagal mengambil data: ' + res.message, 'Gagal');
-        return;
-      }
-
-      await kStorage.setJSON(nilaiTag(currentClass.kelas, currentClass.mapel, currentAspek), res.nilai || {});
-      await kStorage.setJSON(nilaiSyncMetaTag(currentClass.kelas, currentClass.mapel, currentAspek), { syncedAt: new Date().toISOString() });
-      try { await kStorage.delete(pendingTag); } catch (e) {}
-
-      aspekData.nilai = res.nilai || {};
-      aspekData.daftarTanggal = computeDaftarTanggal_(aspekData.nilai);
-      renderAspekTable();
-      refreshAspekSyncStatus();
-
-      await showAlert('Data nilai berhasil diambil dari server.', 'Sinkron Berhasil');
-      return;
-    }
-
-    showLoading(true, 'Memeriksa data di server...');
-    const cekRes = await apiCall('getAspekNilai', {
-      kelas: currentClass.kelas,
-      mapel: currentClass.mapel,
-      aspek: currentAspek
-    });
-    showLoading(false);
-
-    if (!cekRes.success) {
-      await showAlert('Gagal memeriksa data server: ' + cekRes.message, 'Gagal');
-      return;
-    }
-
-    const tanggalServer = computeDaftarTanggal_(cekRes.nilai || {});
-    const tanggalLokalSet = new Set(computeDaftarTanggal_(nilaiLokal));
-    const tanggalHanyaDiServer = tanggalServer.filter(t => !tanggalLokalSet.has(t));
-
-    let hapusDiServer = false;
-    if (tanggalHanyaDiServer.length) {
-      const daftarTgl = tanggalHanyaDiServer.map(t => formatTanggalPanjang_(t)).join(', ');
-      const pilihan = await showPilihanDataServer(
-        `Terdapat data penilaian di server pada tanggal ${daftarTgl} yang tidak terdapat di lokal.`,
-        'Data Server'
-      );
-      if (!pilihan || pilihan === 'batal') return;
-      hapusDiServer = (pilihan === 'hapus');
-    }
-
-    const konfirmSinkron = await showKonfirmasi(
-      `Data nilai pada perangkat ini untuk tanggal penilaian yang sama akan MENIMPA data yang sudah ada di server.\n\nLanjutkan sinkronisasi nilai ${currentAspek}?`,
-      'Konfirmasi Sinkron Nilai'
-    );
-    if (!konfirmSinkron) return;
-
-    showLoading(true, 'Menyinkronkan nilai ke server...');
-
-    if (hapusDiServer && tanggalHanyaDiServer.length) {
-      const delRes = await apiCall('deleteAspekNilai', {
-        kelas: currentClass.kelas,
-        mapel: currentClass.mapel,
-        aspek: currentAspek,
-        noPenilaian: tanggalHanyaDiServer,
-        username: user.username
-      });
-      if (!delRes.success) {
+      if (!currentClass || !currentAspek) return;
+      const btn = document.getElementById('btnSinkronNilai');
+      if (btn) btn.disabled = true;
+    
+      const pendingTag = nilaiPendingDeleteTag(currentClass.kelas, currentClass.mapel, currentAspek);
+    
+      try {
+        const nilaiLokal = await kStorage.getJSON(nilaiTag(currentClass.kelas, currentClass.mapel, currentAspek), {});
+        const adaDataLokal = nilaiLokal && Object.keys(nilaiLokal).length > 0;
+    
+        if (!adaDataLokal) {
+          showLoading(true, 'Mengambil data nilai dari server...');
+          const res = await apiCall('getAspekNilai', {
+            kelas: currentClass.kelas,
+            mapel: currentClass.mapel,
+            aspek: currentAspek
+          });
+          showLoading(false);
+    
+          if (!res.success) {
+            await showAlert('Gagal mengambil data: ' + res.message, 'Gagal');
+            return;
+          }
+    
+          await kStorage.setJSON(nilaiTag(currentClass.kelas, currentClass.mapel, currentAspek), res.nilai || {});
+          await kStorage.setJSON(nilaiSyncMetaTag(currentClass.kelas, currentClass.mapel, currentAspek), { syncedAt: new Date().toISOString() });
+          try { await kStorage.delete(pendingTag); } catch (e) {}
+    
+          aspekData.nilai = res.nilai || {};
+          aspekData.daftarTanggal = computeDaftarTanggal_(aspekData.nilai);
+          renderAspekTable();
+          refreshAspekSyncStatus();
+    
+          await showAlert('Data nilai berhasil diambil dari server.', 'Sinkron Berhasil');
+          return;
+        }
+    
+        showLoading(true, 'Memeriksa data di server...');
+        const cekRes = await apiCall('getAspekNilai', {
+          kelas: currentClass.kelas,
+          mapel: currentClass.mapel,
+          aspek: currentAspek
+        });
         showLoading(false);
-        await showAlert('Gagal menghapus di server: ' + delRes.message, 'Gagal');
-        return;
-      }
-    }
-
-    const siswa = await kStorage.getJSON(siswaTag(currentClass.kelas), []);
-    const namaByNis = {};
-    siswa.forEach(s => namaByNis[s.nis] = s.nama);
-
-    // --- INI SATU-SATUNYA DEKLARASI flatData ---
-    const flatData = [];
-    Object.keys(nilaiLokal).forEach(nis => {
-      Object.keys(nilaiLokal[nis]).forEach(key => {
-        const entry = nilaiLokal[nis][key];
-        // Ekstrak tanggal dari key (format: YYYY-MM-DD_username)
-        const tanggal = key.split('_')[0];
-        if (entry && entry.nilai !== undefined && entry.nilai !== null && entry.nilai !== '') {
-          flatData.push({
-            nis: nis,
-            nama: namaByNis[nis] || '',
-            noPenilaian: tanggal,
-            nilai: entry.nilai,
-            username: entry.username || user.username
+    
+        if (!cekRes.success) {
+          await showAlert('Gagal memeriksa data server: ' + cekRes.message, 'Gagal');
+          return;
+        }
+    
+        const tanggalServer = computeDaftarTanggal_(cekRes.nilai || {});
+        const tanggalLokalSet = new Set(computeDaftarTanggal_(nilaiLokal));
+        const tanggalHanyaDiServer = tanggalServer.filter(t => !tanggalLokalSet.has(t));
+    
+        let hapusDiServer = false;
+        if (tanggalHanyaDiServer.length) {
+          const daftarTgl = tanggalHanyaDiServer.map(t => formatTanggalPanjang_(t)).join(', ');
+          const pilihan = await showPilihanDataServer(
+            `Terdapat data penilaian di server pada tanggal ${daftarTgl} yang tidak terdapat di lokal.`,
+            'Data Server'
+          );
+          if (!pilihan || pilihan === 'batal') return;
+          hapusDiServer = (pilihan === 'hapus');
+        }
+    
+        const konfirmSinkron = await showKonfirmasi(
+          `Data nilai pada perangkat ini untuk tanggal penilaian yang sama akan MENIMPA data yang sudah ada di server.\n\nLanjutkan sinkronisasi nilai ${currentAspek}?`,
+          'Konfirmasi Sinkron Nilai'
+        );
+        if (!konfirmSinkron) return;
+    
+        showLoading(true, 'Menyinkronkan nilai ke server...');
+    
+        if (hapusDiServer && tanggalHanyaDiServer.length) {
+          const delRes = await apiCall('deleteAspekNilai', {
+            kelas: currentClass.kelas,
+            mapel: currentClass.mapel,
+            aspek: currentAspek,
+            noPenilaian: tanggalHanyaDiServer,
+            username: user.username
+          });
+          if (!delRes.success) {
+            showLoading(false);
+            await showAlert('Gagal menghapus di server: ' + delRes.message, 'Gagal');
+            return;
+          }
+        }
+    
+        const siswa = await kStorage.getJSON(siswaTag(currentClass.kelas), []);
+        const namaByNis = {};
+        siswa.forEach(s => namaByNis[s.nis] = s.nama);
+    
+        // --- INI SATU-SATUNYA DEKLARASI flatData ---
+        const flatData = [];
+        Object.keys(nilaiLokal).forEach(nis => {
+          Object.keys(nilaiLokal[nis]).forEach(key => {
+            const entry = nilaiLokal[nis][key];
+            // Ekstrak tanggal dari key (format: YYYY-MM-DD_username)
+            const tanggal = key.split('_')[0];
+            if (entry && entry.nilai !== undefined && entry.nilai !== null && entry.nilai !== '') {
+              flatData.push({
+                nis: nis,
+                nama: namaByNis[nis] || '',
+                noPenilaian: tanggal,
+                nilai: entry.nilai,
+                username: entry.username || user.username
+              });
+            }
+          });
+        });
+    
+        const res = await apiCall('sinkronNilaiAspek', {
+          kelas: currentClass.kelas,
+          mapel: currentClass.mapel,
+          aspek: currentAspek,
+          data: flatData,
+          username: user.username
+        });
+    
+        showLoading(false);
+    
+        if (!res.success) {
+          await showAlert('Gagal sinkron: ' + res.message, 'Gagal');
+          return;
+        }
+    
+        let nilaiHasil = res.nilai || {};
+    
+        if (hapusDiServer && tanggalHanyaDiServer.length) {
+          tanggalHanyaDiServer.forEach(tgl => {
+            Object.keys(nilaiHasil).forEach(nis => {
+              if (nilaiHasil[nis] && nilaiHasil[nis][tgl] !== undefined) {
+                delete nilaiHasil[nis][tgl];
+              }
+            });
           });
         }
-      });
-    });
-
-    const res = await apiCall('sinkronNilaiAspek', {
-      kelas: currentClass.kelas,
-      mapel: currentClass.mapel,
-      aspek: currentAspek,
-      data: flatData,
-      username: user.username
-    });
-
-    showLoading(false);
-
-    if (!res.success) {
-      await showAlert('Gagal sinkron: ' + res.message, 'Gagal');
-      return;
+    
+        await kStorage.setJSON(nilaiTag(currentClass.kelas, currentClass.mapel, currentAspek), nilaiHasil);
+        await kStorage.setJSON(nilaiSyncMetaTag(currentClass.kelas, currentClass.mapel, currentAspek), { syncedAt: new Date().toISOString() });
+        try { await kStorage.delete(pendingTag); } catch (e) {}
+    
+        aspekData.nilai = nilaiHasil;
+        aspekData.daftarTanggal = computeDaftarTanggal_(aspekData.nilai);
+        renderAspekTable();
+        refreshAspekSyncStatus();
+    
+        await showAlert('Sinkron nilai berhasil. Rekap di server telah diperbarui.', 'Sinkron Berhasil');
+      } catch (e) {
+        showLoading(false);
+        await showAlert('Gagal sinkron: ' + e.message, 'Gagal');
+      } finally {
+        if (btn) btn.disabled = false;
+      }
     }
-
-    let nilaiHasil = res.nilai || {};
-
-    if (hapusDiServer && tanggalHanyaDiServer.length) {
-      tanggalHanyaDiServer.forEach(tgl => {
-        Object.keys(nilaiHasil).forEach(nis => {
-          if (nilaiHasil[nis] && nilaiHasil[nis][tgl] !== undefined) {
-            delete nilaiHasil[nis][tgl];
-          }
-        });
-      });
-    }
-
-    await kStorage.setJSON(nilaiTag(currentClass.kelas, currentClass.mapel, currentAspek), nilaiHasil);
-    await kStorage.setJSON(nilaiSyncMetaTag(currentClass.kelas, currentClass.mapel, currentAspek), { syncedAt: new Date().toISOString() });
-    try { await kStorage.delete(pendingTag); } catch (e) {}
-
-    aspekData.nilai = nilaiHasil;
-    aspekData.daftarTanggal = computeDaftarTanggal_(aspekData.nilai);
-    renderAspekTable();
-    refreshAspekSyncStatus();
-
-    await showAlert('Sinkron nilai berhasil. Rekap di server telah diperbarui.', 'Sinkron Berhasil');
-  } catch (e) {
-    showLoading(false);
-    await showAlert('Gagal sinkron: ' + e.message, 'Gagal');
-  } finally {
-    if (btn) btn.disabled = false;
-  }
-}
 
     function computeDaftarTanggal_(nilaiMap) {
       const set = new Set();
