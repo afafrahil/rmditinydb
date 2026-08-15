@@ -694,6 +694,28 @@
       flex: 2;
     }
 
+    .modal-footer.stack {
+      flex-direction: column;
+    }
+
+    .modal-footer.stack .btn-secondary,
+    .modal-footer.stack .btn-main,
+    .modal-footer.stack .btn-danger {
+      flex: none;
+      width: 100%;
+    }
+
+    .btn-danger {
+      background: var(--error);
+      color: #fff;
+      border: none;
+      padding: 14px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 15px;
+      cursor: pointer;
+    }
+
     .modal-row {
       display: flex;
       align-items: center;
@@ -958,6 +980,23 @@
     </div>
   </div>
 
+  <!-- MODAL: PILIHAN HAPUS PENILAIAN (Lokal / Server / Batal) -->
+  <div id="modalPilihanHapus" class="modal-overlay" style="z-index:1000;">
+    <div class="modal-card" style="max-height:auto;">
+      <div class="modal-header">
+        <div class="modal-title" id="modalPilihanHapusTitle">Hapus Penilaian</div>
+      </div>
+      <div class="modal-body" style="padding:16px;">
+        <p id="modalPilihanHapusMsg" style="font-size:14px;line-height:1.6;color:var(--text-main);white-space:pre-line;"></p>
+      </div>
+      <div class="modal-footer stack">
+        <button class="btn-secondary" onclick="modalPilihanHapusResolve_('lokal')">Hapus Lokal (tanpa internet)</button>
+        <button class="btn-danger" onclick="modalPilihanHapusResolve_('server')">Hapus di Server (butuh internet)</button>
+        <button class="btn-secondary" onclick="modalPilihanHapusResolve_('batal')">Batal</button>
+      </div>
+    </div>
+  </div>
+
   <!-- MODAL: ALERT CUSTOM (ganti alert()) -->
   <div id="modalAlert" class="modal-overlay" style="z-index:1001;">
     <div class="modal-card" style="max-height:auto;">
@@ -1012,6 +1051,20 @@
     function modalKonfirmasiResolve_(val) {
       document.getElementById('modalKonfirmasi').classList.remove('active');
       if (__modalKonfirmasiResolve) { __modalKonfirmasiResolve(val); __modalKonfirmasiResolve = null; }
+    }
+
+    let __modalPilihanHapusResolve = null;
+    function showPilihanHapus(msg, title = 'Hapus Penilaian') {
+      return new Promise(resolve => {
+        __modalPilihanHapusResolve = resolve;
+        document.getElementById('modalPilihanHapusTitle').textContent = title;
+        document.getElementById('modalPilihanHapusMsg').textContent = msg;
+        document.getElementById('modalPilihanHapus').classList.add('active');
+      });
+    }
+    function modalPilihanHapusResolve_(val) {
+      document.getElementById('modalPilihanHapus').classList.remove('active');
+      if (__modalPilihanHapusResolve) { __modalPilihanHapusResolve(val); __modalPilihanHapusResolve = null; }
     }
 
     let __modalAlertResolve = null;
@@ -1834,20 +1887,29 @@
       return `${y}-${m}-${day}`;
     }
 
+    const NAMA_BULAN_ID_ = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+
     function formatTanggalSingkat_(iso) {
-      try {
-        return new Date(iso + 'T00:00:00').toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
-      } catch (e) {
-        return iso;
+      // Format dd/MM (mis. "15/08"), dipecah langsung dari string ISO
+      // "yyyy-MM-dd" -- tidak melalui objek Date agar kebal dari masalah
+      // parsing/timezone.
+      const parts = String(iso).split('-');
+      if (parts.length === 3) {
+        return parts[2] + '/' + parts[1];
       }
+      return iso;
     }
 
     function formatTanggalPanjang_(iso) {
-      try {
-        return new Date(iso + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
-      } catch (e) {
-        return iso;
+      const parts = String(iso).split('-');
+      if (parts.length === 3) {
+        const tahun = parts[0];
+        const bulanIdx = parseInt(parts[1], 10) - 1;
+        const tanggal = parseInt(parts[2], 10);
+        const namaBulan = NAMA_BULAN_ID_[bulanIdx] || parts[1];
+        return `${tanggal} ${namaBulan} ${tahun}`;
       }
+      return iso;
     }
 
     function renderAspekTable() {
@@ -2024,43 +2086,107 @@
     }
 
     async function hapusKolom(tanggal) {
-      const konfirmHapus = await showKonfirmasi(
-        `Yakin ingin menghapus semua nilai pada tanggal ${formatTanggalPanjang_(tanggal)}?
-Tindakan ini tidak bisa dibatalkan.`,
-        'Konfirmasi Hapus'
+      const pilihan = await showPilihanHapus(
+        `Hapus semua nilai pada tanggal ${formatTanggalPanjang_(tanggal)}?\n\n` +
+        `"Hapus Lokal" hanya menghapus di perangkat ini, tidak butuh internet, dan akan ditawarkan untuk dihapus juga di server saat "Sinkron Nilai" berikutnya.\n\n` +
+        `"Hapus di Server" langsung menghapus di server saat ini juga dan membutuhkan koneksi internet.`,
+        'Hapus Penilaian'
       );
-      if (!konfirmHapus) return;
 
-      showLoading(true, 'Menghapus (offline)...');
+      if (!pilihan || pilihan === 'batal') return;
+
       const msg = document.getElementById('saveMsg');
 
-      try {
-        Object.keys(aspekData.nilai).forEach(nis => {
-          if (aspekData.nilai[nis][tanggal] !== undefined) delete aspekData.nilai[nis][tanggal];
-        });
+      if (pilihan === 'lokal') {
+        // Hapus lokal saja -- tidak butuh internet. Ditandai "pending delete"
+        // agar bisa ditawarkan untuk dihapus juga di server saat sinkron nilai
+        // berikutnya (lihat sinkronNilaiAspek()).
+        showLoading(true, 'Menghapus (offline)...');
+        try {
+          Object.keys(aspekData.nilai).forEach(nis => {
+            if (aspekData.nilai[nis][tanggal] !== undefined) delete aspekData.nilai[nis][tanggal];
+          });
 
-        await kStorage.setJSON(nilaiTag(currentClass.kelas, currentClass.mapel, currentAspek), aspekData.nilai);
+          await kStorage.setJSON(nilaiTag(currentClass.kelas, currentClass.mapel, currentAspek), aspekData.nilai);
 
-        // Tandai tanggal ini sebagai "pending delete" agar bisa ditawarkan
-        // untuk dihapus juga di server saat sinkron berikutnya.
-        const pendingTag = nilaiPendingDeleteTag(currentClass.kelas, currentClass.mapel, currentAspek);
-        const pendingList = await kStorage.getJSON(pendingTag, []);
-        if (!pendingList.includes(String(tanggal))) {
-          pendingList.push(String(tanggal));
-          await kStorage.setJSON(pendingTag, pendingList);
+          const pendingTag = nilaiPendingDeleteTag(currentClass.kelas, currentClass.mapel, currentAspek);
+          const pendingList = await kStorage.getJSON(pendingTag, []);
+          if (!pendingList.includes(String(tanggal))) {
+            pendingList.push(String(tanggal));
+            await kStorage.setJSON(pendingTag, pendingList);
+          }
+
+          aspekData.daftarTanggal = computeDaftarTanggal_(aspekData.nilai);
+          renderAspekTable();
+
+          msg.style.color = 'var(--success)';
+          msg.textContent = `Penilaian tanggal ${formatTanggalPanjang_(tanggal)} dihapus di perangkat ini ✓ (belum dihapus di server)`;
+          setTimeout(() => msg.textContent = '', 4000);
+        } catch (e) {
+          msg.style.color = 'var(--error)';
+          msg.textContent = 'Gagal: ' + e.message;
+        } finally {
+          showLoading(false);
         }
+        return;
+      }
 
-        aspekData.daftarTanggal = computeDaftarTanggal_(aspekData.nilai);
-        renderAspekTable();
+      if (pilihan === 'server') {
+        // Hapus langsung di server -- WAJIB terhubung internet saat ini juga.
+        showLoading(true, 'Menghapus di server...');
+        try {
+          const delRes = await apiCall('deleteAspekNilai', {
+            kelas: currentClass.kelas,
+            mapel: currentClass.mapel,
+            aspek: currentAspek,
+            noPenilaian: [tanggal],
+            username: user.username
+          });
 
-        msg.style.color = 'var(--success)';
-        msg.textContent = `Penilaian tanggal ${formatTanggalPanjang_(tanggal)} dihapus ✓`;
-        setTimeout(() => msg.textContent = '', 3000);
-      } catch (e) {
-        msg.style.color = 'var(--error)';
-        msg.textContent = 'Gagal: ' + e.message;
-      } finally {
-        showLoading(false);
+          if (delRes.offline) {
+            showLoading(false);
+            await showAlert(
+              'Tidak ada koneksi internet. Untuk menghapus di server, pastikan perangkat terhubung ke internet lalu coba lagi.\n\nAnda juga bisa memilih "Hapus Lokal" untuk menghapus di perangkat ini terlebih dahulu.',
+              'Perlu Koneksi Internet'
+            );
+            return;
+          }
+
+          if (!delRes.success) {
+            showLoading(false);
+            await showAlert('Gagal menghapus di server: ' + delRes.message, 'Gagal');
+            return;
+          }
+
+          // Hapus juga di lokal supaya kolom langsung hilang dari perangkat ini.
+          Object.keys(aspekData.nilai).forEach(nis => {
+            if (aspekData.nilai[nis][tanggal] !== undefined) delete aspekData.nilai[nis][tanggal];
+          });
+          await kStorage.setJSON(nilaiTag(currentClass.kelas, currentClass.mapel, currentAspek), aspekData.nilai);
+
+          // Bersihkan dari daftar pending-delete jika sebelumnya pernah
+          // ditandai (sudah selesai dihapus di server, tidak perlu ditanya lagi).
+          const pendingTag = nilaiPendingDeleteTag(currentClass.kelas, currentClass.mapel, currentAspek);
+          const pendingList = await kStorage.getJSON(pendingTag, []);
+          const idx = pendingList.indexOf(String(tanggal));
+          if (idx !== -1) {
+            pendingList.splice(idx, 1);
+            await kStorage.setJSON(pendingTag, pendingList);
+          }
+
+          aspekData.daftarTanggal = computeDaftarTanggal_(aspekData.nilai);
+          renderAspekTable();
+          refreshAspekSyncStatus();
+
+          msg.style.color = 'var(--success)';
+          msg.textContent = `Penilaian tanggal ${formatTanggalPanjang_(tanggal)} berhasil dihapus di server ✓`;
+          setTimeout(() => msg.textContent = '', 4000);
+        } catch (e) {
+          msg.style.color = 'var(--error)';
+          msg.textContent = 'Gagal: ' + e.message;
+        } finally {
+          showLoading(false);
+        }
       }
     }
 
