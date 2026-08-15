@@ -1114,6 +1114,7 @@
     // CUSTOM MODAL (ganti alert dan confirm)
     // ==========================================
     let __modalKonfirmasiResolve = null;
+
     function showKonfirmasi(msg, title = 'Konfirmasi') {
       return new Promise(resolve => {
         __modalKonfirmasiResolve = resolve;
@@ -1122,12 +1123,15 @@
         document.getElementById('modalKonfirmasi').classList.add('active');
       });
     }
+
     function modalKonfirmasiResolve_(val) {
       document.getElementById('modalKonfirmasi').classList.remove('active');
-      if (__modalKonfirmasiResolve) { __modalKonfirmasiResolve(val); __modalKonfirmasiResolve = null; }
+      if (__modalKonfirmasiResolve) { __modalKonfirmasiResolve(val);
+        __modalKonfirmasiResolve = null; }
     }
 
     let __modalPilihanHapusResolve = null;
+
     function showPilihanHapus(msg, title = 'Hapus Penilaian') {
       return new Promise(resolve => {
         __modalPilihanHapusResolve = resolve;
@@ -1136,12 +1140,15 @@
         document.getElementById('modalPilihanHapus').classList.add('active');
       });
     }
+
     function modalPilihanHapusResolve_(val) {
       document.getElementById('modalPilihanHapus').classList.remove('active');
-      if (__modalPilihanHapusResolve) { __modalPilihanHapusResolve(val); __modalPilihanHapusResolve = null; }
+      if (__modalPilihanHapusResolve) { __modalPilihanHapusResolve(val);
+        __modalPilihanHapusResolve = null; }
     }
 
     let __modalDataServerResolve = null;
+
     function showPilihanDataServer(msg, title = 'Data Server') {
       return new Promise(resolve => {
         __modalDataServerResolve = resolve;
@@ -1150,12 +1157,15 @@
         document.getElementById('modalDataServer').classList.add('active');
       });
     }
+
     function modalDataServerResolve_(val) {
       document.getElementById('modalDataServer').classList.remove('active');
-      if (__modalDataServerResolve) { __modalDataServerResolve(val); __modalDataServerResolve = null; }
+      if (__modalDataServerResolve) { __modalDataServerResolve(val);
+        __modalDataServerResolve = null; }
     }
 
     let __modalAlertResolve = null;
+
     function showAlert(msg, title = 'Informasi') {
       return new Promise(resolve => {
         __modalAlertResolve = resolve;
@@ -1164,9 +1174,11 @@
         document.getElementById('modalAlert').classList.add('active');
       });
     }
+
     function modalAlertResolve_() {
       document.getElementById('modalAlert').classList.remove('active');
-      if (__modalAlertResolve) { __modalAlertResolve(); __modalAlertResolve = null; }
+      if (__modalAlertResolve) { __modalAlertResolve();
+        __modalAlertResolve = null; }
     }
 
     // ==========================================
@@ -1214,7 +1226,7 @@
     const kPending = {};
     let kReqCounter = 0;
 
-    window.__kodularResponse = function (reqId, opType, success, payload) {
+    window.__kodularResponse = function(reqId, opType, success, payload) {
       try {
         const pending = kPending[reqId];
         if (!pending) return;
@@ -1349,67 +1361,75 @@
     }
 
     async function loadInfoLembaga() {
-      let res = await apiCall('getInfoLembaga');
-      const headerEl = document.getElementById('appHeader');
-      const loadingBar = document.querySelector('.splash-loading-bar');
+      try {
+        let res = await apiCall('getInfoLembaga');
+        const headerEl = document.getElementById('appHeader');
+        const loadingBar = document.querySelector('.splash-loading-bar');
 
-      if (res && res.success) {
-        try {
-          await kStorage.setJSON(infoLembagaTag(), res);
-        } catch (e) {
-          console.log('Tidak bisa menyimpan info lembaga ke TinyDB:', e);
-        }
-      } else {
-        try {
-          const cached = await kStorage.getJSON(infoLembagaTag(), null);
-          if (cached && cached.success) {
-            res = cached;
+        if (res && res.success) {
+          try {
+            await kStorage.setJSON(infoLembagaTag(), res);
+          } catch (e) {
+            console.log('Tidak bisa menyimpan info lembaga ke TinyDB:', e);
           }
-        } catch (e) {
-          console.log('Tidak bisa membaca cache info lembaga dari TinyDB:', e);
+        } else {
+          try {
+            const cached = await kStorage.getJSON(infoLembagaTag(), null);
+            if (cached && cached.success) {
+              res = cached;
+            }
+          } catch (e) {
+            console.log('Tidak bisa membaca cache info lembaga dari TinyDB:', e);
+          }
         }
-      }
 
-      if (!res || !res.success) {
-        document.getElementById('splashTitle').textContent = '';
-        pendingHeaderReveal = () => { headerEl.style.display = 'none'; };
+        if (!res || !res.success) {
+          document.getElementById('splashTitle').textContent = 'Aplikasi Penilaian';
+          pendingHeaderReveal = () => { headerEl.style.display = 'none'; };
+          if (loadingBar) loadingBar.classList.add('hidden');
+          hideSplashScreen();
+          return;
+        }
+
+        document.getElementById('appNamaLembaga').textContent = res.namaLembaga || 'Aplikasi Penilaian';
+        const periodeText = [res.tahunAjaran, res.semester].filter(Boolean).join(' ');
+        document.getElementById('appPeriode').textContent = periodeText;
+
+        const logoEl = document.getElementById('appLogo');
+        if (res.logoUrl) {
+          logoEl.src = res.logoUrl;
+          logoEl.style.visibility = 'visible';
+        } else {
+          logoEl.style.visibility = 'hidden';
+        }
+
+        document.getElementById('splashTitle').textContent = res.appNama || 'Aplikasi Penilaian';
+        document.getElementById('splashLembaga').textContent = res.namaLembaga || "";
+        document.getElementById('splashPeriode').innerHTML =
+          `Tahun Ajaran ${res.tahunAjaran || ''}<br>Semester ${res.semester || ''}`;
+
+        const splashLogoEl = document.getElementById('splashLogo');
+        if (res.logoUrl) {
+          splashLogoEl.src = res.logoUrl;
+          splashLogoEl.style.visibility = 'visible';
+        } else {
+          splashLogoEl.style.visibility = 'hidden';
+        }
+
         if (loadingBar) loadingBar.classList.add('hidden');
+
+        if (res.appNama) document.title = res.appNama;
+
+        pendingHeaderReveal = () => { headerEl.style.display = 'flex'; };
+
         hideSplashScreen();
-        return;
+      } catch (e) {
+        console.error('Error di loadInfoLembaga:', e);
+        document.getElementById('splashTitle').textContent = 'Aplikasi Penilaian';
+        pendingHeaderReveal = () => { document.getElementById('appHeader').style.display = 'none'; };
+        document.querySelector('.splash-loading-bar').classList.add('hidden');
+        hideSplashScreen();
       }
-
-      document.getElementById('appNamaLembaga').textContent = res.namaLembaga || '';
-      const periodeText = [res.tahunAjaran, res.semester].filter(Boolean).join(' ');
-      document.getElementById('appPeriode').textContent = periodeText;
-
-      const logoEl = document.getElementById('appLogo');
-      if (res.logoUrl) {
-        logoEl.src = res.logoUrl;
-        logoEl.style.visibility = 'visible';
-      } else {
-        logoEl.style.visibility = 'hidden';
-      }
-
-      document.getElementById('splashTitle').textContent = res.appNama || '';
-      document.getElementById('splashLembaga').textContent = res.namaLembaga || "";
-      document.getElementById('splashPeriode').innerHTML =
-        `Tahun Ajaran ${res.tahunAjaran || ''}<br>Semester ${res.semester || ''}`;
-
-      const splashLogoEl = document.getElementById('splashLogo');
-      if (res.logoUrl) {
-        splashLogoEl.src = res.logoUrl;
-        splashLogoEl.style.visibility = 'visible';
-      } else {
-        splashLogoEl.style.visibility = 'hidden';
-      }
-
-      if (loadingBar) loadingBar.classList.add('hidden');
-
-      if (res.appNama) document.title = res.appNama;
-
-      pendingHeaderReveal = () => { headerEl.style.display = 'flex'; };
-
-      hideSplashScreen();
     }
 
     // ==========================================
@@ -1441,7 +1461,8 @@
             return;
           }
           if (loginRes.offline) {
-            user = { username: savedSession.username, nama: savedSession.nama || savedSession.username, role: savedSession.role };
+            user = { username: savedSession.username, nama: savedSession.nama || savedSession.username, role: savedSession
+                .role };
             loadDashboard();
             return;
           }
@@ -1495,7 +1516,8 @@
         sessionStorage.setItem('user', JSON.stringify(user));
 
         try {
-          await kStorage.setJSON(userSessionTag(), { username: u, password: p, nama: res.nama, role: res.role, loginAt: new Date().toISOString() });
+          await kStorage.setJSON(userSessionTag(), { username: u, password: p, nama: res.nama, role: res.role,
+            loginAt: new Date().toISOString() });
         } catch (e) {
           console.log('Tidak bisa menyimpan session ke TinyDB:', e);
         }
@@ -1633,7 +1655,9 @@
         });
 
         if (statusEl) statusEl.textContent = 'Tersinkron: ' + formatWaktu_(res.syncedAt);
-        if (!silent) await showAlert('Sinkron berhasil ✓\n' + res.assignments.length + ' kelas/mapel & data siswa tersimpan offline.\nSekarang input nilai bisa dilakukan tanpa internet.', 'Sinkron Berhasil');
+        if (!silent) await showAlert('Sinkron berhasil ✓\n' + res.assignments.length +
+          ' kelas/mapel & data siswa tersimpan offline.\nSekarang input nilai bisa dilakukan tanpa internet.',
+          'Sinkron Berhasil');
       } catch (e) {
         if (!silent) await showAlert('Gagal sinkron: ' + e.message, 'Gagal');
       } finally {
@@ -1656,7 +1680,8 @@
       try {
         const siswa = await kStorage.getJSON(siswaTag(kelas), null);
         if (!siswa) {
-          tbody.innerHTML = `<tr><td colspan="9" style="color:red;">Data siswa belum tersinkron. Kembali ke Dashboard dan tekan "Sinkron Data" terlebih dahulu.</td></tr>`;
+          tbody.innerHTML =
+            `<tr><td colspan="9" style="color:red;">Data siswa belum tersinkron. Kembali ke Dashboard dan tekan "Sinkron Data" terlebih dahulu.</td></tr>`;
           return;
         }
 
@@ -1692,10 +1717,12 @@
       }
     }
 
+    // ==========================================
+    // HITUNG REKAP (SEMUA DATA, TIDAK DIFILTER)
+    // ==========================================
     function hitungRekap_(siswa, nilaiPerAspek) {
       const calcAvg = (obj) => {
         const vals = Object.values(obj || {}).map(v => {
-          // v bisa berupa {nilai, username} atau langsung nilai (untuk kompatibilitas)
           if (v && typeof v === 'object' && v.nilai !== undefined) {
             return Number(v.nilai);
           }
@@ -1710,7 +1737,7 @@
           return String(val).toUpperCase() === code;
         }).length;
       };
-    
+
       const rekap = {};
       siswa.forEach(s => {
         const nis = s.nis;
@@ -1741,7 +1768,8 @@
         const siswa = await kStorage.getJSON(siswaTag(currentClass.kelas), null);
         if (!siswa) {
           showLoading(false);
-          await showAlert('Data siswa belum tersinkron. Kembali ke Dashboard dan tekan "Sinkron Data" terlebih dahulu.', 'Data Belum Tersinkron');
+          await showAlert('Data siswa belum tersinkron. Kembali ke Dashboard dan tekan "Sinkron Data" terlebih dahulu.',
+            'Data Belum Tersinkron');
           openRekap(currentClass.kelas, currentClass.mapel);
           return;
         }
@@ -1765,6 +1793,48 @@
     }
 
     // ==========================================
+    // KOMPUTASI TANGGAL
+    // ==========================================
+    function computeDaftarTanggal_(nilaiMap) {
+      const set = new Set();
+      Object.values(nilaiMap || {}).forEach(m => {
+        Object.keys(m || {}).forEach(key => {
+          const tanggal = key.split('_')[0];
+          if (tanggal) set.add(tanggal);
+        });
+      });
+      return Array.from(set).sort();
+    }
+
+    // ==========================================
+    // KONVERSI DATA DARI SERVER
+    // ==========================================
+    function konversiDataDariServer(nilaiFromServer) {
+      const result = {};
+      Object.keys(nilaiFromServer || {}).forEach(nis => {
+        result[nis] = {};
+        Object.keys(nilaiFromServer[nis] || {}).forEach(tanggal => {
+          const entry = nilaiFromServer[nis][tanggal];
+          if (entry && typeof entry === 'object' && entry.nilai !== undefined) {
+            const username = entry.username || 'unknown';
+            const key = tanggal + '_' + username;
+            result[nis][key] = {
+              nilai: entry.nilai,
+              username: username
+            };
+          } else if (entry !== undefined && entry !== null && entry !== '') {
+            const key = tanggal + '_' + (user ? user.username : 'unknown');
+            result[nis][key] = {
+              nilai: entry,
+              username: user ? user.username : 'unknown'
+            };
+          }
+        });
+      });
+      return result;
+    }
+
+    // ==========================================
     // SINKRON NILAI PER ASPEK
     // ==========================================
     async function refreshAspekSyncStatus() {
@@ -1784,13 +1854,13 @@
       if (!currentClass || !currentAspek) return;
       const btn = document.getElementById('btnSinkronNilai');
       if (btn) btn.disabled = true;
-    
+
       const pendingTag = nilaiPendingDeleteTag(currentClass.kelas, currentClass.mapel, currentAspek);
-    
+
       try {
         const nilaiLokal = await kStorage.getJSON(nilaiTag(currentClass.kelas, currentClass.mapel, currentAspek), {});
         const adaDataLokal = nilaiLokal && Object.keys(nilaiLokal).length > 0;
-    
+
         if (!adaDataLokal) {
           showLoading(true, 'Mengambil data nilai dari server...');
           const res = await apiCall('getAspekNilai', {
@@ -1799,25 +1869,28 @@
             aspek: currentAspek
           });
           showLoading(false);
-    
+
           if (!res.success) {
             await showAlert('Gagal mengambil data: ' + res.message, 'Gagal');
             return;
           }
-    
-          await kStorage.setJSON(nilaiTag(currentClass.kelas, currentClass.mapel, currentAspek), res.nilai || {});
-          await kStorage.setJSON(nilaiSyncMetaTag(currentClass.kelas, currentClass.mapel, currentAspek), { syncedAt: new Date().toISOString() });
+
+          const nilaiKonversi = konversiDataDariServer(res.nilai || {});
+
+          await kStorage.setJSON(nilaiTag(currentClass.kelas, currentClass.mapel, currentAspek), nilaiKonversi);
+          await kStorage.setJSON(nilaiSyncMetaTag(currentClass.kelas, currentClass.mapel, currentAspek), { syncedAt: new Date()
+              .toISOString() });
           try { await kStorage.delete(pendingTag); } catch (e) {}
-    
-          aspekData.nilai = res.nilai || {};
+
+          aspekData.nilai = nilaiKonversi;
           aspekData.daftarTanggal = computeDaftarTanggal_(aspekData.nilai);
           renderAspekTable();
           refreshAspekSyncStatus();
-    
+
           await showAlert('Data nilai berhasil diambil dari server.', 'Sinkron Berhasil');
           return;
         }
-    
+
         showLoading(true, 'Memeriksa data di server...');
         const cekRes = await apiCall('getAspekNilai', {
           kelas: currentClass.kelas,
@@ -1825,16 +1898,16 @@
           aspek: currentAspek
         });
         showLoading(false);
-    
+
         if (!cekRes.success) {
           await showAlert('Gagal memeriksa data server: ' + cekRes.message, 'Gagal');
           return;
         }
-    
+
         const tanggalServer = computeDaftarTanggal_(cekRes.nilai || {});
         const tanggalLokalSet = new Set(computeDaftarTanggal_(nilaiLokal));
         const tanggalHanyaDiServer = tanggalServer.filter(t => !tanggalLokalSet.has(t));
-    
+
         let hapusDiServer = false;
         if (tanggalHanyaDiServer.length) {
           const daftarTgl = tanggalHanyaDiServer.map(t => formatTanggalPanjang_(t)).join(', ');
@@ -1845,15 +1918,15 @@
           if (!pilihan || pilihan === 'batal') return;
           hapusDiServer = (pilihan === 'hapus');
         }
-    
+
         const konfirmSinkron = await showKonfirmasi(
           `Data nilai pada perangkat ini untuk tanggal penilaian yang sama akan MENIMPA data yang sudah ada di server.\n\nLanjutkan sinkronisasi nilai ${currentAspek}?`,
           'Konfirmasi Sinkron Nilai'
         );
         if (!konfirmSinkron) return;
-    
+
         showLoading(true, 'Menyinkronkan nilai ke server...');
-    
+
         if (hapusDiServer && tanggalHanyaDiServer.length) {
           const delRes = await apiCall('deleteAspekNilai', {
             kelas: currentClass.kelas,
@@ -1868,17 +1941,15 @@
             return;
           }
         }
-    
+
         const siswa = await kStorage.getJSON(siswaTag(currentClass.kelas), []);
         const namaByNis = {};
         siswa.forEach(s => namaByNis[s.nis] = s.nama);
-    
-        // --- INI SATU-SATUNYA DEKLARASI flatData ---
+
         const flatData = [];
         Object.keys(nilaiLokal).forEach(nis => {
           Object.keys(nilaiLokal[nis]).forEach(key => {
             const entry = nilaiLokal[nis][key];
-            // Ekstrak tanggal dari key (format: YYYY-MM-DD_username)
             const tanggal = key.split('_')[0];
             if (entry && entry.nilai !== undefined && entry.nilai !== null && entry.nilai !== '') {
               flatData.push({
@@ -1891,7 +1962,7 @@
             }
           });
         });
-    
+
         const res = await apiCall('sinkronNilaiAspek', {
           kelas: currentClass.kelas,
           mapel: currentClass.mapel,
@@ -1899,35 +1970,38 @@
           data: flatData,
           username: user.username
         });
-    
+
         showLoading(false);
-    
+
         if (!res.success) {
           await showAlert('Gagal sinkron: ' + res.message, 'Gagal');
           return;
         }
-    
-        let nilaiHasil = res.nilai || {};
-    
+
+        let nilaiHasil = konversiDataDariServer(res.nilai || {});
+
         if (hapusDiServer && tanggalHanyaDiServer.length) {
           tanggalHanyaDiServer.forEach(tgl => {
             Object.keys(nilaiHasil).forEach(nis => {
-              if (nilaiHasil[nis] && nilaiHasil[nis][tgl] !== undefined) {
-                delete nilaiHasil[nis][tgl];
-              }
+              Object.keys(nilaiHasil[nis] || {}).forEach(key => {
+                if (key.startsWith(tgl + '_')) {
+                  delete nilaiHasil[nis][key];
+                }
+              });
             });
           });
         }
-    
+
         await kStorage.setJSON(nilaiTag(currentClass.kelas, currentClass.mapel, currentAspek), nilaiHasil);
-        await kStorage.setJSON(nilaiSyncMetaTag(currentClass.kelas, currentClass.mapel, currentAspek), { syncedAt: new Date().toISOString() });
+        await kStorage.setJSON(nilaiSyncMetaTag(currentClass.kelas, currentClass.mapel, currentAspek), { syncedAt: new Date()
+            .toISOString() });
         try { await kStorage.delete(pendingTag); } catch (e) {}
-    
+
         aspekData.nilai = nilaiHasil;
         aspekData.daftarTanggal = computeDaftarTanggal_(aspekData.nilai);
         renderAspekTable();
         refreshAspekSyncStatus();
-    
+
         await showAlert('Sinkron nilai berhasil. Rekap di server telah diperbarui.', 'Sinkron Berhasil');
       } catch (e) {
         showLoading(false);
@@ -1937,18 +2011,9 @@
       }
     }
 
-    function computeDaftarTanggal_(nilaiMap) {
-      const set = new Set();
-      Object.values(nilaiMap || {}).forEach(m => {
-        Object.keys(m || {}).forEach(key => {
-          // Key format: YYYY-MM-DD_username
-          const tanggal = key.split('_')[0];
-          if (tanggal) set.add(tanggal);
-        });
-      });
-      return Array.from(set).sort();
-    }
-
+    // ==========================================
+    // FORMAT TANGGAL
+    // ==========================================
     function todayISO_() {
       const d = new Date();
       const y = d.getFullYear();
@@ -1957,7 +2022,9 @@
       return `${y}-${m}-${day}`;
     }
 
-    const NAMA_BULAN_ID_ = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    const NAMA_BULAN_ID_ = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober',
+      'November', 'Desember'
+    ];
 
     function formatTanggalSingkat_(iso) {
       const parts = String(iso).split('-');
@@ -1979,15 +2046,17 @@
       return iso;
     }
 
+    // ==========================================
+    // RENDER TABEL ASPEK
+    // ==========================================
     function renderAspekTable() {
       const thead = document.getElementById('theadAspek');
       const tbody = document.getElementById('tbodyAspek');
-    
+
       const daftarTanggal = aspekData.daftarTanggal || [];
-    
+
       let thHTML = `<tr><th class="sticky-col text-left">Nama Siswa</th>`;
       daftarTanggal.forEach(tgl => {
-        // Cek apakah ada data milik sendiri atau guru lain untuk tanggal ini
         let adaOwn = false;
         let adaOther = false;
         Object.values(aspekData.nilai || {}).forEach(nMap => {
@@ -2001,16 +2070,18 @@
             }
           });
         });
-    
+
         const label = formatTanggalSingkat_(tgl);
         let actionsHtml = '';
         if (adaOwn) {
-          actionsHtml += `<button class="col-action-btn" onclick="openEditKolom('${tgl}')" title="Edit ${label}">✎</button>`;
+          actionsHtml +=
+            `<button class="col-action-btn" onclick="openEditKolom('${tgl}')" title="Edit ${label}">✎</button>`;
         }
         if (adaOwn || adaOther) {
-          actionsHtml += `<button class="col-action-btn danger" onclick="hapusKolom('${tgl}')" title="Hapus ${label}">🗑</button>`;
+          actionsHtml +=
+            `<button class="col-action-btn danger" onclick="hapusKolom('${tgl}')" title="Hapus ${label}">🗑</button>`;
         }
-    
+
         thHTML += `<th>
           <div>${label}</div>
           <div class="col-actions">${actionsHtml}</div>
@@ -2018,31 +2089,31 @@
       });
       thHTML += `</tr>`;
       thead.innerHTML = thHTML;
-    
+
       tbody.innerHTML = '';
-    
+
       if (daftarTanggal.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="1" class="empty-state">Belum ada penilaian. Tekan "+ Tambah Penilaian" di bawah untuk mulai input nilai.</td></tr>`;
+        tbody.innerHTML =
+          `<tr><td colspan="1" class="empty-state">Belum ada penilaian. Tekan "+ Tambah Penilaian" di bawah untuk mulai input nilai.</td></tr>`;
         return;
       }
-    
+
       (aspekData.siswa || []).forEach(s => {
         const nMap = aspekData.nilai[s.nis] || {};
         let tr = document.createElement('tr');
-    
+
         let tdHTML = `<td class="sticky-col text-left">
           <div style="font-weight:600; font-size:13px; white-space:normal; word-break:break-word;">${s.nama || ''}</div>
           <div style="font-size:11px; color:var(--text-muted);">${s.nis || ''}</div>
         </td>`;
-    
+
         daftarTanggal.forEach(tgl => {
           let ownEntry = null;
           let otherEntries = [];
-    
+
           Object.keys(nMap || {}).forEach(key => {
             if (key.startsWith(tgl + '_')) {
               const entry = nMap[key];
-              // Cek apakah entry adalah objek dengan properti username
               if (entry && typeof entry === 'object' && entry.username) {
                 if (entry.username === user.username) {
                   ownEntry = entry;
@@ -2050,36 +2121,33 @@
                   otherEntries.push(entry);
                 }
               } else if (entry !== undefined && entry !== null && entry !== '') {
-                // Data lama: langsung nilai (kompatibilitas)
                 ownEntry = { nilai: entry, username: user.username };
               }
             }
           });
-    
+
           let displayHtml = '';
           if (ownEntry) {
-            // Tampilkan nilai milik sendiri dengan background hijau
-            displayHtml = `<span style="background: var(--own-bg); color: var(--own-text); padding: 2px 8px; border-radius: 4px; display: inline-block; font-weight:600;">${ownEntry.nilai}</span>`;
-            // Jika ada juga data dari guru lain, tampilkan di sampingnya
+            displayHtml =
+              `<span style="background: var(--own-bg); color: var(--own-text); padding: 2px 8px; border-radius: 4px; display: inline-block; font-weight:600;">${ownEntry.nilai}</span>`;
             if (otherEntries.length > 0) {
-              const otherVals = otherEntries.map(e => 
+              const otherVals = otherEntries.map(e =>
                 `<span style="background: var(--other-bg); color: var(--other-text); padding: 2px 6px; border-radius: 4px; margin: 1px; display: inline-block; font-size: 11px;">${e.nilai}</span>`
               ).join(' ');
               displayHtml += ' ' + otherVals;
             }
           } else if (otherEntries.length > 0) {
-            // Hanya data dari guru lain
-            const otherVals = otherEntries.map(e => 
+            const otherVals = otherEntries.map(e =>
               `<span style="background: var(--other-bg); color: var(--other-text); padding: 2px 6px; border-radius: 4px; margin: 1px; display: inline-block; font-size: 11px;">${e.nilai}</span>`
             ).join(' ');
             displayHtml = otherVals;
           } else {
             displayHtml = '-';
           }
-    
+
           tdHTML += `<td class="value-cell" style="padding: 6px 4px; min-width: 60px;">${displayHtml}</td>`;
         });
-    
+
         tr.innerHTML = tdHTML;
         tbody.appendChild(tr);
       });
@@ -2099,10 +2167,10 @@
     function openKolomModal_(tanggal, isEdit) {
       document.getElementById('modalKolomTitle').textContent =
         isEdit ? ('Edit Penilaian - ' + formatTanggalPanjang_(tanggal)) : 'Tambah Penilaian';
-    
+
       const body = document.getElementById('modalKolomBody');
       body.innerHTML = '';
-    
+
       const tglRow = document.createElement('div');
       tglRow.className = 'modal-row';
       tglRow.innerHTML = `
@@ -2112,13 +2180,12 @@
         <input type="date" id="modalKolomTanggal" value="${tanggal}" ${isEdit ? 'disabled' : ''}>
       `;
       body.appendChild(tglRow);
-    
+
       aspekData.siswa.forEach(s => {
         const row = document.createElement('div');
         row.className = 'modal-row';
-    
+
         const nMap = aspekData.nilai[s.nis] || {};
-        // Cari data milik sendiri untuk tanggal ini
         let existingVal = '';
         Object.keys(nMap).forEach(key => {
           if (key.startsWith(tanggal + '_')) {
@@ -2128,18 +2195,21 @@
             }
           }
         });
-    
+
         let fieldHTML;
         if (currentAspek === 'KEHADIRAN') {
-          const opts = [{ v: '', label: '-' }, { v: 'H', label: 'H' }, { v: 'S', label: 'S' }, { v: 'I', label: 'I' }, { v: 'A', label: 'A' }];
+          const opts = [{ v: '', label: '-' }, { v: 'H', label: 'H' }, { v: 'S', label: 'S' }, { v: 'I', label: 'I' },
+            { v: 'A', label: 'A' }
+          ];
           const curUpper = existingVal ? String(existingVal).toUpperCase() : '';
           fieldHTML = `<select class="siswa-value-input" data-nis="${s.nis}">` +
             opts.map(o => `<option value="${o.v}" ${o.v === curUpper ? 'selected' : ''}>${o.label}</option>`).join('') +
             `</select>`;
         } else {
-          fieldHTML = `<input type="number" min="0" max="100" class="siswa-value-input" data-nis="${s.nis}" value="${existingVal}">`;
+          fieldHTML =
+            `<input type="number" min="0" max="100" class="siswa-value-input" data-nis="${s.nis}" value="${existingVal}">`;
         }
-    
+
         row.innerHTML = `
           <div>
             <div class="modal-siswa-name">${s.nama}</div>
@@ -2149,7 +2219,7 @@
         `;
         body.appendChild(row);
       });
-    
+
       document.getElementById('modalKolom').classList.add('active');
     }
 
@@ -2160,19 +2230,19 @@
     async function simpanKolomModal() {
       const btn = document.getElementById('btnSimpanKolom');
       btn.disabled = true;
-    
+
       const tanggalInput = document.getElementById('modalKolomTanggal');
       const tanggal = tanggalInput ? tanggalInput.value : '';
-    
+
       if (!tanggal) {
         btn.disabled = false;
         await showAlert('Tanggal penilaian wajib diisi.', 'Perhatian');
         return;
       }
-    
+
       const inputs = document.querySelectorAll('#modalKolomBody .siswa-value-input');
       const flatData = [];
-    
+
       inputs.forEach(el => {
         const val = el.value.trim();
         if (val !== '') {
@@ -2195,33 +2265,32 @@
           });
         }
       });
-    
+
       if (!flatData.length) {
         btn.disabled = false;
         await showAlert('Isi minimal satu nilai sebelum menyimpan.', 'Perhatian');
         return;
       }
-    
+
       showLoading(true, 'Menyimpan (offline)...');
       const msg = document.getElementById('saveMsg');
-    
+
       try {
         flatData.forEach(item => {
           if (!aspekData.nilai[item.nis]) aspekData.nilai[item.nis] = {};
-          // Key = tanggal_username
           const key = item.noPenilaian + '_' + item.username;
           aspekData.nilai[item.nis][key] = {
             nilai: item.nilai,
             username: item.username
           };
         });
-    
+
         await kStorage.setJSON(nilaiTag(currentClass.kelas, currentClass.mapel, currentAspek), aspekData.nilai);
-    
+
         aspekData.daftarTanggal = computeDaftarTanggal_(aspekData.nilai);
         renderAspekTable();
         closeModalKolom();
-    
+
         msg.style.color = 'var(--success)';
         msg.textContent = 'Tersimpan offline ✓ (tekan "Sinkron Nilai" di halaman ini untuk mengirim ke server)';
         setTimeout(() => msg.textContent = '', 4000);
@@ -2234,20 +2303,24 @@
       }
     }
 
+    // ==========================================
+    // HAPUS KOLOM
+    // ==========================================
     async function hapusKolom(tanggal) {
-      // Cek apakah ada data milik sendiri untuk tanggal ini
       let adaOwn = false;
       let adaOther = false;
-      Object.values(aspekData.nilai).forEach(nMap => {
+      Object.values(aspekData.nilai || {}).forEach(nMap => {
         Object.keys(nMap || {}).forEach(key => {
           if (key.startsWith(tanggal + '_')) {
-            const username = nMap[key].username;
-            if (username === user.username) adaOwn = true;
-            else adaOther = true;
+            const entry = nMap[key];
+            if (entry && typeof entry === 'object' && entry.username) {
+              if (entry.username === user.username) adaOwn = true;
+              else adaOther = true;
+            }
           }
         });
       });
-    
+
       let pilihan;
       if (adaOwn) {
         pilihan = await showPilihanHapus(
@@ -2270,11 +2343,11 @@
       } else {
         return;
       }
-    
+
       if (!pilihan || pilihan === 'batal') return;
-    
+
       const msg = document.getElementById('saveMsg');
-    
+
       if (pilihan === 'lokal') {
         showLoading(true, 'Menghapus (offline)...');
         try {
@@ -2282,29 +2355,25 @@
             const nMap = aspekData.nilai[nis];
             Object.keys(nMap).forEach(key => {
               if (key.startsWith(tanggal + '_')) {
-                // Hapus hanya jika milik sendiri, atau hapus semua jika tidak ada own
                 if (adaOwn) {
-                  // Hapus hanya milik sendiri
                   if (nMap[key].username === user.username) {
                     delete nMap[key];
                   }
                 } else {
-                  // Hapus semua (milik guru lain)
                   delete nMap[key];
                 }
               }
             });
-            // Hapus objek kosong
             if (Object.keys(nMap).length === 0) {
               delete aspekData.nilai[nis];
             }
           });
-    
+
           await kStorage.setJSON(nilaiTag(currentClass.kelas, currentClass.mapel, currentAspek), aspekData.nilai);
-    
+
           aspekData.daftarTanggal = computeDaftarTanggal_(aspekData.nilai);
           renderAspekTable();
-    
+
           msg.style.color = 'var(--success)';
           msg.textContent = `Penilaian tanggal ${formatTanggalPanjang_(tanggal)} dihapus di perangkat ini ✓`;
           setTimeout(() => msg.textContent = '', 4000);
@@ -2316,7 +2385,7 @@
         }
         return;
       }
-    
+
       if (pilihan === 'server' && adaOwn) {
         showLoading(true, 'Menghapus di server...');
         try {
@@ -2327,7 +2396,7 @@
             noPenilaian: [tanggal],
             username: user.username
           });
-    
+
           if (delRes.offline) {
             showLoading(false);
             await showAlert(
@@ -2336,14 +2405,13 @@
             );
             return;
           }
-    
+
           if (!delRes.success) {
             showLoading(false);
             await showAlert('Gagal menghapus di server: ' + delRes.message, 'Gagal');
             return;
           }
-    
-          // Hapus juga di lokal (hanya milik sendiri)
+
           Object.keys(aspekData.nilai).forEach(nis => {
             const nMap = aspekData.nilai[nis];
             Object.keys(nMap).forEach(key => {
@@ -2355,13 +2423,13 @@
               delete aspekData.nilai[nis];
             }
           });
-    
+
           await kStorage.setJSON(nilaiTag(currentClass.kelas, currentClass.mapel, currentAspek), aspekData.nilai);
-    
+
           aspekData.daftarTanggal = computeDaftarTanggal_(aspekData.nilai);
           renderAspekTable();
           refreshAspekSyncStatus();
-    
+
           msg.style.color = 'var(--success)';
           msg.textContent = `Penilaian tanggal ${formatTanggalPanjang_(tanggal)} berhasil dihapus di server ✓`;
           setTimeout(() => msg.textContent = '', 4000);
@@ -2373,7 +2441,6 @@
         }
       }
     }
-
   </script>
 </body>
 
