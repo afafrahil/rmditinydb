@@ -997,6 +997,23 @@
     </div>
   </div>
 
+  <!-- MODAL: DATA SERVER (tanggal ada di server tapi tidak ada di lokal, saat Sinkron Nilai) -->
+  <div id="modalDataServer" class="modal-overlay" style="z-index:1000;">
+    <div class="modal-card" style="max-height:auto;">
+      <div class="modal-header">
+        <div class="modal-title" id="modalDataServerTitle">Data Server</div>
+      </div>
+      <div class="modal-body" style="padding:16px;">
+        <p id="modalDataServerMsg" style="font-size:14px;line-height:1.6;color:var(--text-main);white-space:pre-line;"></p>
+      </div>
+      <div class="modal-footer stack">
+        <button class="btn-main" onclick="modalDataServerResolve_('tarik')">1. Tarik Data Server</button>
+        <button class="btn-danger" onclick="modalDataServerResolve_('hapus')">2. Hapus Data Server</button>
+        <button class="btn-secondary" onclick="modalDataServerResolve_('batal')">Batal</button>
+      </div>
+    </div>
+  </div>
+
   <!-- MODAL: ALERT CUSTOM (ganti alert()) -->
   <div id="modalAlert" class="modal-overlay" style="z-index:1001;">
     <div class="modal-card" style="max-height:auto;">
@@ -1065,6 +1082,20 @@
     function modalPilihanHapusResolve_(val) {
       document.getElementById('modalPilihanHapus').classList.remove('active');
       if (__modalPilihanHapusResolve) { __modalPilihanHapusResolve(val); __modalPilihanHapusResolve = null; }
+    }
+
+    let __modalDataServerResolve = null;
+    function showPilihanDataServer(msg, title = 'Data Server') {
+      return new Promise(resolve => {
+        __modalDataServerResolve = resolve;
+        document.getElementById('modalDataServerTitle').textContent = title;
+        document.getElementById('modalDataServerMsg').textContent = msg;
+        document.getElementById('modalDataServer').classList.add('active');
+      });
+    }
+    function modalDataServerResolve_(val) {
+      document.getElementById('modalDataServer').classList.remove('active');
+      if (__modalDataServerResolve) { __modalDataServerResolve(val); __modalDataServerResolve = null; }
     }
 
     let __modalAlertResolve = null;
@@ -1761,20 +1792,42 @@
           return;
         }
 
-        // Cek apakah ada tanggal penilaian yang sudah dihapus offline (mis. via
-        // "Hapus Kolom") tapi mungkin masih tersimpan di server.
-        const pendingDelete = await kStorage.getJSON(pendingTag, []);
-        let hapusDiServer = false;
-        if (pendingDelete && pendingDelete.length) {
-          const daftarTgl = pendingDelete.map(n => formatTanggalPanjang_(n)).join(', ');
-          hapusDiServer = await showKonfirmasi(
-            `Terdapat tanggal penilaian ${daftarTgl} yang masih tersimpan di server namun sudah dihapus secara offline.\n\nApakah Anda ingin menghapus juga di server?`,
-            'Hapus di Server?'
-          );
+        // Kondisi (b): data nilai sudah ada di TinyDB -> ambil dulu data terkini
+        // dari server untuk dibandingkan per TANGGAL PENILAIAN dengan data lokal.
+        showLoading(true, 'Memeriksa data di server...');
+        const cekRes = await apiCall('getAspekNilai', {
+          kelas: currentClass.kelas,
+          mapel: currentClass.mapel,
+          aspek: currentAspek
+        });
+        showLoading(false);
+
+        if (!cekRes.success) {
+          await showAlert('Gagal memeriksa data server: ' + cekRes.message, 'Gagal');
+          return;
         }
 
-        // Kondisi (b): data nilai sudah ada di TinyDB -> bandingkan per TANGGAL PENILAIAN.
-        // Nilai lokal untuk tanggal yang sama akan MENIMPA nilai di server.
+        // Tanggal yang ADA di server tapi TIDAK ADA di lokal -- baik karena
+        // sengaja dihapus offline (lihat hapusKolom()) maupun sebab lain
+        // (mis. belum pernah ditarik ke perangkat ini).
+        const tanggalServer = computeDaftarTanggal_(cekRes.nilai || {});
+        const tanggalLokalSet = new Set(computeDaftarTanggal_(nilaiLokal));
+        const tanggalHanyaDiServer = tanggalServer.filter(t => !tanggalLokalSet.has(t));
+
+        let hapusDiServer = false;
+        if (tanggalHanyaDiServer.length) {
+          const daftarTgl = tanggalHanyaDiServer.map(t => formatTanggalPanjang_(t)).join(', ');
+          const pilihan = await showPilihanDataServer(
+            `Terdapat data penilaian di server pada tanggal ${daftarTgl} yang tidak terdapat di lokal.`,
+            'Data Server'
+          );
+          if (!pilihan || pilihan === 'batal') return;
+          hapusDiServer = (pilihan === 'hapus');
+          // pilihan === 'tarik' -> hapusDiServer tetap false, data server pada
+          // tanggal tsb akan ikut ditarik masuk ke lokal setelah sinkron.
+        }
+
+        // Konfirmasi umum: data lokal akan menimpa data server pada tanggal yang sama.
         const konfirmSinkron = await showKonfirmasi(
           `Data nilai pada perangkat ini untuk tanggal penilaian yang sama akan MENIMPA data yang sudah ada di server.\n\nLanjutkan sinkronisasi nilai ${currentAspek}?`,
           'Konfirmasi Sinkron Nilai'
@@ -1784,14 +1837,15 @@
 
         showLoading(true, 'Menyinkronkan nilai ke server...');
 
-        // Jika guru memilih menghapus juga di server, lakukan sebelum upsert
-        // agar baris lama tidak ikut kebawa lagi saat data digabung ulang.
-        if (pendingDelete && pendingDelete.length && hapusDiServer) {
+        // Jika guru memilih "Hapus Data Server", lakukan sebelum upsert agar
+        // baris yang hanya ada di server itu tidak ikut kebawa lagi saat data
+        // digabung ulang.
+        if (hapusDiServer && tanggalHanyaDiServer.length) {
           const delRes = await apiCall('deleteAspekNilai', {
             kelas: currentClass.kelas,
             mapel: currentClass.mapel,
             aspek: currentAspek,
-            noPenilaian: pendingDelete,
+            noPenilaian: tanggalHanyaDiServer,
             username: user.username
           });
           if (!delRes.success) {
@@ -1815,6 +1869,11 @@
           });
         });
 
+        // "Tarik Data Server": kirim data lokal (upsert) sekaligus menerima
+        // kembali gabungan data server terbaru -- termasuk tanggal yang tadinya
+        // hanya ada di server, sehingga otomatis "tertarik" masuk ke lokal.
+        // "Hapus Data Server": tanggal tsb sudah dihapus di server di atas,
+        // jadi tidak akan ikut kebawa lagi di hasil gabungan.
         const res = await apiCall('sinkronNilaiAspek', {
           kelas: currentClass.kelas,
           mapel: currentClass.mapel,
@@ -1832,28 +1891,23 @@
 
         let nilaiHasil = res.nilai || {};
 
-        if (pendingDelete && pendingDelete.length) {
-          if (hapusDiServer) {
-            // Sudah dihapus di server barusan -> bersihkan status pending.
-            try { await kStorage.delete(pendingTag); } catch (e) {}
-          } else {
-            // Guru memilih TIDAK menghapus di server -> nomor ini kemungkinan
-            // masih ikut kebawa dalam data gabungan dari server. Buang lagi
-            // di sisi client supaya kolom yang sudah dihapus offline tidak
-            // muncul kembali. Status pending tetap disimpan, akan ditanya
-            // lagi pada sinkron berikutnya.
-            pendingDelete.forEach(noPen => {
-              Object.keys(nilaiHasil).forEach(nis => {
-                if (nilaiHasil[nis] && nilaiHasil[nis][noPen] !== undefined) {
-                  delete nilaiHasil[nis][noPen];
-                }
-              });
+        if (hapusDiServer && tanggalHanyaDiServer.length) {
+          // Sudah dihapus di server sebelum upsert -- berjaga-jaga jika masih
+          // ikut kebawa di hasil gabungan, buang lagi di sisi client.
+          tanggalHanyaDiServer.forEach(tgl => {
+            Object.keys(nilaiHasil).forEach(nis => {
+              if (nilaiHasil[nis] && nilaiHasil[nis][tgl] !== undefined) {
+                delete nilaiHasil[nis][tgl];
+              }
             });
-          }
+          });
         }
 
         await kStorage.setJSON(nilaiTag(currentClass.kelas, currentClass.mapel, currentAspek), nilaiHasil);
         await kStorage.setJSON(nilaiSyncMetaTag(currentClass.kelas, currentClass.mapel, currentAspek), { syncedAt: new Date().toISOString() });
+        // Status pending-delete lama (dari hapusKolom "Hapus Lokal") sudah
+        // sepenuhnya tercakup oleh pemeriksaan diff di atas -- bersihkan.
+        try { await kStorage.delete(pendingTag); } catch (e) {}
 
         aspekData.nilai = nilaiHasil;
         aspekData.daftarTanggal = computeDaftarTanggal_(aspekData.nilai);
