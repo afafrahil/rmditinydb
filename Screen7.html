@@ -1940,10 +1940,10 @@
     function computeDaftarTanggal_(nilaiMap) {
       const set = new Set();
       Object.values(nilaiMap || {}).forEach(m => {
-        Object.keys(m || {}).forEach(k => {
-          // Ekstrak tanggal dari key "YYYY-MM-DD_username"
-          const tanggal = k.split('_')[0];
-          set.add(tanggal);
+        Object.keys(m || {}).forEach(key => {
+          // Key format: YYYY-MM-DD_username
+          const tanggal = key.split('_')[0];
+          if (tanggal) set.add(tanggal);
         });
       });
       return Array.from(set).sort();
@@ -1987,20 +1987,21 @@
     
       let thHTML = `<tr><th class="sticky-col text-left">Nama Siswa</th>`;
       daftarTanggal.forEach(tgl => {
-        // Cek apakah ada data milik sendiri atau guru lain
+        // Cek apakah ada data milik sendiri atau guru lain untuk tanggal ini
         let adaOwn = false;
         let adaOther = false;
-        Object.values(aspekData.nilai).forEach(nMap => {
+        Object.values(aspekData.nilai || {}).forEach(nMap => {
           Object.keys(nMap || {}).forEach(key => {
             if (key.startsWith(tgl + '_')) {
-              const username = nMap[key].username;
-              if (username === user.username) adaOwn = true;
-              else adaOther = true;
+              const entry = nMap[key];
+              if (entry && typeof entry === 'object' && entry.username) {
+                if (entry.username === user.username) adaOwn = true;
+                else adaOther = true;
+              }
             }
           });
         });
     
-        // Jika ada data milik sendiri dan guru lain, tampilkan kedua tombol
         const label = formatTanggalSingkat_(tgl);
         let actionsHtml = '';
         if (adaOwn) {
@@ -2025,38 +2026,52 @@
         return;
       }
     
-      aspekData.siswa.forEach(s => {
+      (aspekData.siswa || []).forEach(s => {
         const nMap = aspekData.nilai[s.nis] || {};
         let tr = document.createElement('tr');
     
         let tdHTML = `<td class="sticky-col text-left">
-          <div style="font-weight:600; font-size:13px; white-space:normal; word-break:break-word;">${s.nama}</div>
-          <div style="font-size:11px; color:var(--text-muted);">${s.nis}</div>
+          <div style="font-weight:600; font-size:13px; white-space:normal; word-break:break-word;">${s.nama || ''}</div>
+          <div style="font-size:11px; color:var(--text-muted);">${s.nis || ''}</div>
         </td>`;
     
         daftarTanggal.forEach(tgl => {
-          // Cari data milik sendiri dan guru lain untuk tanggal ini
           let ownEntry = null;
           let otherEntries = [];
     
-          Object.keys(nMap).forEach(key => {
+          Object.keys(nMap || {}).forEach(key => {
             if (key.startsWith(tgl + '_')) {
               const entry = nMap[key];
-              if (entry.username === user.username) {
-                ownEntry = entry;
-              } else {
-                otherEntries.push(entry);
+              // Cek apakah entry adalah objek dengan properti username
+              if (entry && typeof entry === 'object' && entry.username) {
+                if (entry.username === user.username) {
+                  ownEntry = entry;
+                } else {
+                  otherEntries.push(entry);
+                }
+              } else if (entry !== undefined && entry !== null && entry !== '') {
+                // Data lama: langsung nilai (kompatibilitas)
+                ownEntry = { nilai: entry, username: user.username };
               }
             }
           });
     
-          // Tampilkan nilai milik sendiri (prioritas) atau gabungan
           let displayHtml = '';
           if (ownEntry) {
-            displayHtml = `<span style="background: var(--own-bg); color: var(--own-text); padding: 2px 8px; border-radius: 4px; display: inline-block;">${ownEntry.nilai}</span>`;
+            // Tampilkan nilai milik sendiri dengan background hijau
+            displayHtml = `<span style="background: var(--own-bg); color: var(--own-text); padding: 2px 8px; border-radius: 4px; display: inline-block; font-weight:600;">${ownEntry.nilai}</span>`;
+            // Jika ada juga data dari guru lain, tampilkan di sampingnya
+            if (otherEntries.length > 0) {
+              const otherVals = otherEntries.map(e => 
+                `<span style="background: var(--other-bg); color: var(--other-text); padding: 2px 6px; border-radius: 4px; margin: 1px; display: inline-block; font-size: 11px;">${e.nilai}</span>`
+              ).join(' ');
+              displayHtml += ' ' + otherVals;
+            }
           } else if (otherEntries.length > 0) {
-            // Tampilkan nilai guru lain (bisa lebih dari satu)
-            const otherVals = otherEntries.map(e => `<span style="background: var(--other-bg); color: var(--other-text); padding: 2px 6px; border-radius: 4px; margin: 1px; display: inline-block; font-size: 11px;">${e.nilai}</span>`).join(' ');
+            // Hanya data dari guru lain
+            const otherVals = otherEntries.map(e => 
+              `<span style="background: var(--other-bg); color: var(--other-text); padding: 2px 6px; border-radius: 4px; margin: 1px; display: inline-block; font-size: 11px;">${e.nilai}</span>`
+            ).join(' ');
             displayHtml = otherVals;
           } else {
             displayHtml = '-';
